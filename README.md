@@ -17,9 +17,9 @@ Here is an example of how this approach can be implemented (also shown in a Boot
 
 Starting from an NBA transactional table that stores data for player statistics throughout a number of seasons, the idea is to aggregate the main information by player name and reduce cardinality from player and season to player alone. 
 
-![Table columns](caminho-da-imagem.png)
+![Table columns](https://github.com/fsoeiro/dimensional-data-modeling/blob/main/table_columns.png)
 
-![Table preview](caminho-da-imagem.png)
+![Table preview](https://github.com/fsoeiro/dimensional-data-modeling/blob/main/table_preview.png)
 
 The first step is to select what information should be important when looking at a player’s season. Besides characteristics that identify and describe the player (such as name, height, college, and draft info), for simplification purposes, the attributes that will be used to summarize a player’s season are the average number of points, assists and rebounds per game. They will be stored in an array-based type we’ll call season_stats:
 
@@ -40,9 +40,9 @@ CREATE TYPE scoring_class AS
 
 There are two more columns we can create based on the transactional game data: one to define if a player is active in a given season, and one to define the number of seasons since the player's last appearance. Of course, if a player is active, the latter will be 0. But if we’re looking at historical data, this information may come in handy.
 
-Finally, the last field is used to identify our reference date, which in this case is the year of the season we are interested in. This way, besides keeping track of history, we also guarantee snapshots of the seasons if we need to recreate a view of a certain point in time. For example, we might be in 2025, but if I wanted to look at the picture based on what data was available in 2001, it is possible to filter by current season and access this view. Our final query to create the table looks like [this](xxx.sql).
+Finally, the last field is used to identify our reference date, which in this case is the year of the season we are interested in. This way, besides keeping track of history, we also guarantee snapshots of the seasons if we need to recreate a view of a certain point in time. For example, we might be in 2025, but if I wanted to look at the picture based on what data was available in 2001, it is possible to filter by current season and access this view. Our final query to create the table looks like [this](https://github.com/fsoeiro/dimensional-data-modeling/blob/main/create-table-players.sql).
 
-Now that the table is created, we need to populate it. The idea here is to start from the first year we need information from and build up on that. Also, we need to explicit the terms for the scoring_class categories, which in this case will be defined in slices of the points per game value. As we are basing this [first insert](yyy.sql) on a specific season, every player will be active.
+Now that the table is created, we need to populate it. The idea here is to start from the first year we need information from and build up on that. Also, we need to explicit the terms for the scoring_class categories, which in this case will be defined in slices of the points per game value. As we are basing this [first insert](https://github.com/fsoeiro/dimensional-data-modeling/blob/main/insert-into-players.sql) on a specific season, every player will be active.
 
 The next step is to create a pipeline out of this. The example below considers a yearly timespan, but the logic should suffice to address other types of cases, such as in daily batch processes. As aforementioned, the main idea is to use a full outer join to merge data season by season so that the whole history of players will be recorded, including their first and last appearances. 
 
@@ -56,7 +56,9 @@ For scoring_class, if there is new data for this_season, we bring it. Otherwise,
 
 Finally, for years_since_last_season, if there is data for this_season, it should return zero. Otherwise, we need to check last_season data for the latest season appearance. We can do that by extracting this value from the seasons field (our array with the whole history) using the cardinality function. Then, we just take the current season based on last_season data (since we do not find this player in this_season), which translates to last_season.current_season + 1, and deduct the value we found for the last appearance. For example, if we are building this table using 2001 as this_season and 2000 as last_season, and the last appearance of the player was in 1998, the calculation will end up as: (2000 + 1) - 1998 = 3. So the conclusion is that the player’s last appearance was 3 years ago.
 
+The SQL code can be found [here](https://github.com/fsoeiro/dimensional-data-modeling/blob/main/pipeline_player_mine.sql). In order to make a pipeline out of this, we only need to iterate on the years for the season, which can be done manually or with some help of a python code. 
+
 The final table will look like this:
-![Final cumulative table](caminho-da-imagem.png)
+![Final cumulative table](https://github.com/fsoeiro/dimensional-data-modeling/blob/main/final_table.png)
 
 We can see that the seasons field is populated by arrays that store data from each season, starting in 1996. The number of values are an indicator of the number of seasons in which a certain player has been active. So, for every season, the whole history of a player is contained in one row, reaching our initial goal of reducing data cardinality while maintaining all analytical data needed. 
